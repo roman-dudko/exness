@@ -4,12 +4,14 @@ from urllib.parse import urlparse
 
 
 class ApiBase:
-    def __init__(self, backend_url):
+    def __init__(self, site_url):
         self.logger = logging.getLogger()
-        self.backend_url = backend_url
+        self.endpoint = site_url
         self.session = requests.Session()
         self.session.headers['Content-Type'] = 'application/json;charset=utf-8'
-        self.session.headers['Referer'] = urlparse(backend_url).netloc
+        #ToDo: Move token to variables
+        self.session.headers['Authorization'] = 'Bearer ' \
+                                                '4a8d47dd2bd534c90b2834ce57a911d658c6b7239e7b3c6821f24a6664ed147d '
 
     def get_session_headers(self):
         return self.session.headers
@@ -19,14 +21,13 @@ class ApiBase:
             f'No {attribute} found in response'
         return self.session.headers[attribute]
 
-    def add_session_headers(self, **kwargs):
+    def add_session_headers(self, **headers):
+        for header in headers:
+            self.session.headers[header] = headers[header]
         return self.session.headers
 
     def update_session_headers(self, headers):
         self.session.headers.update(headers)
-
-    def remove_session_header(self, header_name):
-        self.session.headers.pop(header_name)
 
     def remove_session_headers(self, headers_list):
         for header_name in headers_list:
