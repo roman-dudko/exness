@@ -1,17 +1,19 @@
 import logging
 import requests
-from urllib.parse import urlparse
 
 
 class ApiBase:
-    def __init__(self, site_url):
+    # ToDo: Move to variables
+    ENDPOINT = 'https://gorest.co.in'
+    ACCESS_TOKEN = '4a8d47dd2bd534c90b2834ce57a911d658c6b7239e7b3c6821f24a6664ed147d '
+
+    def __init__(self, api_url):
         self.logger = logging.getLogger()
-        self.endpoint = site_url
+        self.logger.setLevel(logging.INFO)
+        self.api_url = api_url
         self.session = requests.Session()
         self.session.headers['Content-Type'] = 'application/json;charset=utf-8'
-        #ToDo: Move token to variables
-        self.session.headers['Authorization'] = 'Bearer ' \
-                                                '4a8d47dd2bd534c90b2834ce57a911d658c6b7239e7b3c6821f24a6664ed147d '
+        self.session.headers['Authorization'] = 'Bearer ' + self.ACCESS_TOKEN
 
     def get_session_headers(self):
         return self.session.headers
@@ -51,16 +53,7 @@ class ApiBase:
         self.logger.info(f'RESPONSE HEADERS: {response.headers}')
         self.logger.info(f'RESPONSE: {response.text}')
 
-        assert (response.status_code, int(expected_code),
-                'Unexpected response status code')
+        assert response.status_code == int(expected_code), \
+            f'Unexpected response status code: observed - {response.status_code}, expexted - {expected_code}. ' \
+            f"Response: {response.json()}"
         return response
-
-    # ToDo: add method for key/value verification
-
-    # ToDo: verify only keys, 'response formatt'
-    # @staticmethod
-    # def verify_json_content(json_object, attributes):
-    #     for attr in attributes:
-    #         if not (attr in json_object):
-    #             asserts.assert_false(True,
-    #                                  msg=f'Response does not contain {attr} attribute')
