@@ -4,51 +4,62 @@ from urllib.parse import urljoin
 import random
 import string
 
+USERS_PATH = 'public/v2/users/'
 
-class UsersApi(ApiBase):
-    USERS_PATH = 'public/v2/users/'
 
+class Users(ApiBase):
     def __init__(self):
-        users_url = urljoin(self.ENDPOINT, self.USERS_PATH)
-        super().__init__(users_url)
+        self.users_url = urljoin(self.ENDPOINT, USERS_PATH)
+        super().__init__(self.users_url)
 
-    def get_users(self):
-        response = self.session_request('GET', self.api_url)
-        return response.json()
+    def get(self, expected_code=200):
+        return self.session_request('GET', self.users_url, expected_code=expected_code).json()
 
-    def get_user_details(self, user_id):
-        user_url = urljoin(self.api_url, str(user_id))
-        response = self.session_request('GET', user_url)
-        return response.json()
 
-    def create_user(self, name, email, gender="male", status="active", expected_code=201):
+class User(ApiBase):
+    def __init__(self, name=None, email=None, gender="male", status="active", expected_code=201):
+        self.users_url = urljoin(self.ENDPOINT, USERS_PATH)
+        super().__init__(self.users_url)
+
+        name = name if name is not None else UserTools.generate_name()
+        email = email if email is not None else UserTools.generate_email()
         payload = {
             'name': name,
             'email': email,
             'gender': gender,
             'status': status
         }
-        response = self.session_request('POST', self.api_url, payload=payload, expected_code=expected_code)
-        return response.json()
+        response = self.session_request('POST', self.users_url, payload=payload, expected_code=expected_code).json()
+        if expected_code != 201:
+            raise ValueError(response)
+        self.name = response["name"]
+        self.email = response["email"]
+        self.gender = response["gender"]
+        self.status = response["status"]
+        self.id = response["id"]
+        self.user_url = urljoin(self.users_url, str(self.id))
 
-    def update_user(self, user_id, name=None, email=None, gender=None, status=None):
+    def get_details(self, expected_code=200):
+        return self.session_request('GET', self.user_url, expected_code=expected_code).json()
+
+    def delete(self, expected_code=204):
+        self.session_request('DELETE', self.user_url, expected_code=expected_code)
+
+    def update(self, **fields):
+        expected_code = 200 if "expected_code" not in fields.keys() else fields["expected_code"]
         payload = {}
-        user_url = urljoin(self.api_url, str(user_id))
-        if name is not None:
-            payload.update({'name': name})
-        if email is not None:
-            payload.update({'email': email})
-        if gender is not None:
-            payload.update({'gender': gender})
-        if status is not None:
-            payload.update({'status': status})
 
-        response = self.session_request('PATCH', user_url, payload=payload)
-        return response.json()
+        for field in fields:
+            payload.update({field: fields[field]})  # ToDo: dict comprehension
 
-    def delete_user(self, user_id):
-        user_url = urljoin(self.api_url, user_id)
-        self.session_request('DELETE', user_url)
+        response = self.session_request('PATCH', self.user_url, payload=payload, expected_code=expected_code).json()
+        if expected_code != 200:
+            raise ValueError(response)
+        self.name = response["name"]
+        self.email = response["email"]
+        self.gender = response["gender"]
+        self.status = response["status"]
+        return response
 
 
 class UserTools:
@@ -65,10 +76,12 @@ class UserTools:
 
 
 class UserAssertions:
+    SHOULD_NOT_BE_EMPTY = "can't be blank"
+    EMAIL_ALREADY_TAKEN = "already been taken"
+
     @classmethod
-    def verify_email_already_used_error(cls, response):
-        assert response[0]["field"] == "email" and response[0]["message"] == "has already been taken", \
-            f"Incorrect error message: {response}, expected: field=email, message=has already been taken"
+    def verify_error(cls, exception, error):
+        assert error in str(exception.value), f"Incorrect error message: {exception}, expected: {error}"
 
     @classmethod
     def verify_user_presence_by_field(cls, users, field, value, should_present=True):

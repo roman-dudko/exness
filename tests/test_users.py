@@ -1,65 +1,54 @@
-from libraries.Users import UsersApi, UserTools, UserAssertions
+from libraries.Users import User, Users, UserTools, UserAssertions
+import pytest
+
+users = Users()
 
 
-users_api = UsersApi()
+@pytest.fixture
+def user(name=None, email=None, gender="male", status="active"):
+    """Returns a new user with random name and email"""
+    user = User(name, email, gender, status)
+    yield user
+    user.delete()
 
 
 def test_get_users():
-    users = users_api.get_users()
-    assert len(users) > 0
+    all_users = users.get()
+    assert len(all_users) > 0
 
 
-def test_create_user():
-    username = UserTools.generate_name()
-    email = UserTools.generate_email()
-    users_api.create_user(username, email)
-    users = users_api.get_users()
-    UserAssertions.verify_user_presence_by_field(users, "name", username)
+def test_create_user(user):
+    UserAssertions.verify_user_presence_by_field(users.get(), "name", user.name)
 
 
-def test_create_user_with_already_used_name():
-    username = UserTools.generate_name()
-    email1 = UserTools.generate_email()
-    email2 = UserTools.generate_email()
-    users_api.create_user(username, email1)
-    users_api.create_user(username, email2)
-    users = users_api.get_users()
-    UserAssertions.verify_user_presence_by_field(users, "email", email1)
-    UserAssertions.verify_user_presence_by_field(users, "email", email2)
+def test_create_user_with_already_used_name(user):
+    new_user = User(name=user.name)
+    UserAssertions.verify_user_presence_by_field(users.get(), "email", new_user.email)
 
 
-def test_create_user_with_already_used_email():
-    email = UserTools.generate_email()
-    username1 = UserTools.generate_name()
-    username2 = UserTools.generate_name()
-    users_api.create_user(username1, email)
-    response = users_api.create_user(username2, email, expected_code=422)
-    UserAssertions.verify_email_already_used_error(response)
-    users = users_api.get_users()
-    UserAssertions.verify_user_presence_by_field(users, "name", username1)
-    UserAssertions.verify_user_presence_by_field(users, "name", username2, should_present=False)
+def test_create_user_with_already_used_email(user):
+    new_name = UserTools.generate_email()
+    with pytest.raises(ValueError) as exception:
+        new_user = User(email=user.email, name=new_name, expected_code=422)
+    UserAssertions.verify_error(exception, UserAssertions.EMAIL_ALREADY_TAKEN)
+    UserAssertions.verify_user_presence_by_field(users.get(), "name", new_name, should_present=False)
 
 
-def test_update_user_name():
-    username = UserTools.generate_name()
-    email = UserTools.generate_email()
-    user_data = users_api.create_user(username, email, "male", "active")
-    user_id = user_data["id"]
-    new_name = UserTools.generate_name()
-    users_api.update_user(user_id, name=new_name)
-    updated_user = users_api.get_user_details(user_id)
-    UserAssertions.verify_user_fields_values(updated_user, name=new_name, email=email,
-                                             gender="male", status="active")
-
-
-def test_update_user_email():
-    username = UserTools.generate_name()
-    email = UserTools.generate_email()
-    user_data = users_api.create_user(username, email, "male", "active")
-    user_id = user_data["id"]
+# ToDo: parametrize for all fields
+def test_update_user_email(user):
     new_email = UserTools.generate_email()
-    users_api.update_user(user_id, email=new_email)
-    updated_user = users_api.get_user_details(user_id)
-    UserAssertions.verify_user_fields_values(updated_user, name=username, email=new_email,
-                                             gender="male", status="active")
+    user.update(email=new_email)
+    user_details = user.get_details()
+    UserAssertions.verify_user_fields_values(user_details, name=user.name, email=new_email,
+                                             gender=user.gender, status=user.status)
 
+
+# ToDo: parametrize for all fields
+def test_clear_user_email(user):
+    with pytest.raises(ValueError) as exception:
+        user.update(email=" ", expected_code=422)
+    UserAssertions.verify_error(exception, UserAssertions.SHOULD_NOT_BE_EMPTY)
+    assert "email" in str(exception) and "can't be blank" in str(exception)  # ToDo: looks ugly
+    user_details = user.get_details()
+    UserAssertions.verify_user_fields_values(user_details, name=user.name, email=user.email,
+                                             gender=user.gender, status=user.status)
