@@ -3,6 +3,7 @@ from urllib.parse import urljoin
 
 import random
 import string
+import allure
 
 USERS_PATH = 'public/v2/users/'
 
@@ -12,11 +13,13 @@ class Users(ApiBase):
         self.users_url = urljoin(self.ENDPOINT, USERS_PATH)
         super().__init__(self.users_url)
 
+    @allure.step('Get all users')
     def get(self, expected_code=200):
         return self.session_request('GET', self.users_url, expected_code=expected_code).json()
 
 
 class User(ApiBase):
+    @allure.step('Creating user')
     def __init__(self, name=None, email=None, gender="male", status="active", expected_code=201):
         self.users_url = urljoin(self.ENDPOINT, USERS_PATH)
         super().__init__(self.users_url)
@@ -39,19 +42,18 @@ class User(ApiBase):
         self.id = response["id"]
         self.user_url = urljoin(self.users_url, str(self.id))
 
+    @allure.step('Get user details')
     def get_details(self, expected_code=200):
         return self.session_request('GET', self.user_url, expected_code=expected_code).json()
 
+    @allure.step('Delete user')
     def delete(self, expected_code=204):
         self.session_request('DELETE', self.user_url, expected_code=expected_code)
 
+    @allure.step('Update user fields')
     def update(self, **fields):
         expected_code = 200 if "expected_code" not in fields.keys() else fields["expected_code"]
-        payload = {}
-
-        for field in fields:
-            payload.update({field: fields[field]})  # ToDo: dict comprehension
-
+        payload = fields
         response = self.session_request('PATCH', self.user_url, payload=payload, expected_code=expected_code).json()
         if expected_code != 200:
             raise ValueError(response)
@@ -80,10 +82,12 @@ class UserAssertions:
     EMAIL_ALREADY_TAKEN = "already been taken"
 
     @classmethod
+    @allure.step('Verify error message')
     def verify_error(cls, exception, error):
         assert error in str(exception.value), f"Incorrect error message: {exception}, expected: {error}"
 
     @classmethod
+    @allure.step('Verify user with {field} = {value} exists or not')
     def verify_user_presence_by_field(cls, users, field, value, should_present=True):
         if should_present:
             assert any(user[field] == value for user in users), \
@@ -93,6 +97,7 @@ class UserAssertions:
                 "User was found in response, but should not be there"
 
     @classmethod
+    @allure.step('Verify user fields')
     def verify_user_fields_values(cls, user_data, **fields):
         for field in fields:
             if field in user_data.keys():

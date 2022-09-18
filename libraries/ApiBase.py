@@ -45,7 +45,7 @@ class ApiBase:
         if headers:
             all_headers.update(dict(headers))
 
-        self.logger.info(f'URL: {method} {url}')
+        self.logger.info(f'================== REQUEST: {method} {url} ==================')
         self.logger.info(f'REQUEST PAYLOAD: {payload}')
         self.logger.info(f'REQUEST PARAMS: {params}')
         self.logger.info(f'REQUEST HEADERS: {all_headers}')
